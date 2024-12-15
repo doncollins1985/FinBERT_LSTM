@@ -4,6 +4,7 @@ import requests
 import pandas as pd
 import logging
 import json
+import csv  # Import csv module
 from tqdm import tqdm
 from datetime import datetime
 from typing import List
@@ -86,8 +87,7 @@ def fetch_articles_for_date(session: requests.Session, date: str, max_pages: int
             if response.status_code == 429:
                 # Rate limit exceeded, wait and retry
                 retry_after = int(response.headers.get("Retry-After", 60))
-                logging.warning(f"Rate limit exceeded. Retrying after {
-                                retry_after} seconds.")
+                logging.warning(f"Rate limit exceeded. Retrying after {retry_after} seconds.")
                 time.sleep(retry_after)
                 continue
             response.raise_for_status()
@@ -103,8 +103,7 @@ def fetch_articles_for_date(session: requests.Session, date: str, max_pages: int
             if len(docs) < 10:
                 break
         except requests.exceptions.RequestException as e:
-            logging.error(f"Request failed for date {
-                          date} on page {page}: {e}")
+            logging.error(f"Request failed for date {date} on page {page}: {e}")
             break
     return articles
 
@@ -126,11 +125,30 @@ def load_dates_from_stock_data(stock_file: str) -> List[str]:
             raise KeyError("Missing 'Date' column.")
         # Ensure dates are in string format and sorted
         dates = stock_data['Date'].astype(str).dropna().unique().tolist()
+        dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d") 
+                 for date in dates if is_valid_date(date)]
         dates.sort()
         return dates
     except Exception as e:
         logging.error(f"Failed to load dates from {stock_file}: {e}")
         raise
+
+
+def is_valid_date(date_str: str) -> bool:
+    """
+    Validate if the provided string is a valid date in 'YYYY-MM-DD' format.
+
+    Args:
+        date_str: Date string.
+
+    Returns:
+        True if valid, False otherwise.
+    """
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
 
 
 def initialize_output_file(output_file: str) -> None:
@@ -141,10 +159,15 @@ def initialize_output_file(output_file: str) -> None:
         output_file: Path to the output CSV file.
     """
     if not os.path.exists(output_file):
-        # Create the file with headers
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write('Date,Articles\n')
-        logging.info(f"Created new output file with headers: {output_file}")
+        # Create the file with headers using csv module
+        try:
+            with open(output_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Date', 'Articles'])
+            logging.info(f"Created new output file with headers: {output_file}")
+        except Exception as e:
+            logging.error(f"Failed to initialize output file {output_file}: {e}")
+            raise
 
 
 def append_to_csv(output_file: str, date: str, articles: List[str]) -> None:
@@ -158,13 +181,40 @@ def append_to_csv(output_file: str, date: str, articles: List[str]) -> None:
     """
     # Serialize the articles list as a JSON string
     articles_str = json.dumps(articles, ensure_ascii=False)
-    # Prepare the CSV row
-    row = f'"{date}","{articles_str}"\n'
-    # Append to the CSV file
-    with open(output_file, 'a', encoding='utf-8') as f:
-        f.write(row)
-    logging.info(f"Appended {len(articles)} articles for date {
-                 date} to {output_file}.")
+    # Append to the CSV file using csv.writer to handle quoting
+    try:
+        with open(output_file, 'a', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([date, articles_str])
+        logging.info(f"Appended {len(articles)} articles for date {date} to {output_file}.")
+    except Exception as e:
+        logging.error(f"Failed to append data for date {date}: {e}")
+
+
+def get_existing_dates(output_file: str) -> set:
+    """
+    Retrieve a set of dates already present in the output CSV file.
+
+    Args:
+        output_file: Path to the output CSV file.
+
+    Returns:
+        Set of date strings in 'YYYY-MM-DD' format.
+    """
+    existing_dates = set()
+    if os.path.exists(output_file):
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    date = row.get('Date', '').strip()
+                    if is_valid_date(date):
+                        existing_dates.add(date)
+            logging.info(f"Loaded {len(existing_dates)} existing dates from {output_file}.")
+        except Exception as e:
+            logging.error(f"Failed to read existing output file {output_file}: {e}")
+            # Decide whether to proceed or abort. Here, we'll proceed with all dates.
+    return existing_dates
 
 
 def fetch_news_data(dates: List[str], output_file: str, max_pages_per_date: int = MAX_PAGES) -> None:
@@ -181,26 +231,19 @@ def fetch_news_data(dates: List[str], output_file: str, max_pages_per_date: int 
     # Initialize the output file if it doesn't exist
     initialize_output_file(output_file)
 
-    # Resume fetching by excluding already fetched dates
-    if os.path.exists(output_file):
-        try:
-            existing_data = pd.read_csv(output_file)
-            existing_dates = set(existing_data['Date'].astype(str))
-            dates = [date for date in dates if date not in existing_dates]
-            logging.info(f"Resuming fetch. {len(dates)} dates remaining.")
-        except Exception as e:
-            logging.error(f"Failed to read existing output file {
-                          output_file}: {e}")
-            # If reading fails, decide whether to proceed or abort. Here, we'll proceed.
+    # Retrieve existing dates to avoid re-downloading
+    existing_dates = get_existing_dates(output_file)
 
-    for date in tqdm(dates, desc="Fetching news data"):
-        # Validate date format
-        try:
-            datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            logging.error(f"Invalid date format: {date}. Skipping.")
-            continue
+    # Filter dates to only include those not already processed
+    filtered_dates = [date for date in dates if date not in existing_dates]
+    logging.info(f"Total dates to process: {len(filtered_dates)}")
 
+    if not filtered_dates:
+        logging.info("No new dates to process. Exiting.")
+        return
+
+    for date in tqdm(filtered_dates, desc="Fetching news data"):
+        # Date format has been validated during loading
         articles = fetch_articles_for_date(
             session, date, max_pages=max_pages_per_date)
         if articles:
@@ -223,7 +266,6 @@ def main():
     """
     STOCK_DATA_FILE = "data/stock_prices.csv"
     OUTPUT_FILE = "data/news_data.csv"
-    # MAX_PAGES = MAX_PAGES  # Already defined as a constant
 
     try:
         dates = load_dates_from_stock_data(STOCK_DATA_FILE)
@@ -234,3 +276,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
