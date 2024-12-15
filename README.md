@@ -23,7 +23,7 @@ FinBERT_LSTM/
 │   ├── data_preprocessing.ipynb  # Data collection and preprocessing
 │   ├── model_training.ipynb      # Model training and evaluation
 ├── models/
-│   ├── finbert_lstm_model.h5     # Trained FinBERT-LSTM model
+│   ├── finbert_lstm_model.keras     # Trained FinBERT-LSTM model
 │   ├── checkpoints/              # Checkpoints for intermediate training states
 ├── scripts/
 │   ├── collect_stock_data.py     # Script to fetch stock prices
