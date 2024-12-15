@@ -75,7 +75,7 @@ def train_model(input_file, output_model_file, history_file='models/training_his
     early_stop = EarlyStopping(
         monitor='val_loss', patience=10, restore_best_weights=True)
     checkpoint = ModelCheckpoint(
-        'models/best_finbert_lstm_model.keras', monitor='val_loss', save_best_only=True)
+        'models/checkpoints/best_finbert_lstm_model.keras', monitor='val_loss', save_best_only=True)
     callbacks = [early_stop, checkpoint]
 
     # Train model
