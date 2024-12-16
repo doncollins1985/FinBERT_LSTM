@@ -47,42 +47,52 @@ git clone https://github.com/your-username/FinBERT_LSTM.git
 cd FinBERT_LSTM
 ```
 
-### **2. Install Dependencies**
+### **2. Install Dependencies**:
 Make sure you have Python 3.7+ installed. Install the required packages using:
 ```bash
 pip install -r requirements.txt
 ```
 
-### **3. Collect Data**
-- **Stock Prices**: Run `collect_stock_data.py` to fetch stock price data.
+### **3. Collect Stock Prices**:
+Run `1_collect_stock_data.py` to fetch stock price data.
 ```bash
-python scripts/collect_stock_data.py
-```
-- **News Data**: Run `collect_news_data.py` to fetch financial news articles.
-```bash
-python scripts/collect_news_data.py
-```
-- **Compute Sentiments**: Run `compute_sentiments.py` to calculate sentiment scores using FinBERT.
-```bash
-python scripts/compute_sentiments.py
+python scripts/1_collect_stock_data.py
 ```
 
-### **4. Prepare Sequences**
-Create rolling window sequences for LSTM training by running:
+### **4. Collect News Data**:
+Run `2_collect_news_data.py` to fetch financial news articles.
 ```bash
-python scripts/create_sequences.py
+python scripts/2_collect_news_data.py
 ```
 
-### **5. Train the Model**
-Train the FinBERT-LSTM model with:
+### **5. Compute Sentiments**:
+Run `3_compute_sentiments.py` to calculate sentiment scores using FinBERT.
 ```bash
-python scripts/train_model.py
+python scripts/3_compute_sentiments.py
 ```
 
-### **6. Evaluate the Model**
-Evaluate and visualize predictions with:
+### **6. Prepare Sequences**:
+Run '4_create_sequences.py' to create rolling window sequences for LSTM training.
 ```bash
-python scripts/evaluate_model.py
+python scripts/4_create_sequences.py
+```
+
+### **7. Merge The Data**:
+Run '5_merge_data.py' to merge the news_data.csv with the stock_data.csv
+```bash
+python scripts/5_merge_data.py
+```
+
+### **8. Train the Model**:
+Run '6_train_model.py' to train the FinBERT-LSTM model.
+```bash
+python scripts/6_train_model.py
+```
+
+### **9. Evaluate the Model**:
+Run '7_evaluate_model.py' to evaluate and visualize predictions.
+```bash
+python scripts/7_evaluate_model.py
 ```
 
 ---
