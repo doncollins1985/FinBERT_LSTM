@@ -34,8 +34,8 @@ if not API_KEY:
 # Constants
 BASE_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
 QUERY = "finance business technology"
-MAX_RETRIES = 5
-BACKOFF_FACTOR = 1  # For exponential backoff
+MAX_RETRIES = 2
+BACKOFF_FACTOR = 5  # For exponential backoff
 MAX_PAGES = 10        # Maximum pages per date to fetch
 
 # ==============================
@@ -87,7 +87,8 @@ def fetch_articles_for_date(session: requests.Session, date: str, max_pages: int
             if response.status_code == 429:
                 # Rate limit exceeded, wait and retry
                 retry_after = int(response.headers.get("Retry-After", 60))
-                logging.warning(f"Rate limit exceeded. Retrying after {retry_after} seconds.")
+                logging.warning(f"Rate limit exceeded. Retrying after {
+                                retry_after} seconds.")
                 time.sleep(retry_after)
                 continue
             response.raise_for_status()
@@ -103,7 +104,8 @@ def fetch_articles_for_date(session: requests.Session, date: str, max_pages: int
             if len(docs) < 10:
                 break
         except requests.exceptions.RequestException as e:
-            logging.error(f"Request failed for date {date} on page {page}: {e}")
+            logging.error(f"Request failed for date {
+                          date} on page {page}: {e}")
             break
     return articles
 
@@ -125,7 +127,7 @@ def load_dates_from_stock_data(stock_file: str) -> List[str]:
             raise KeyError("Missing 'Date' column.")
         # Ensure dates are in string format and sorted
         dates = stock_data['Date'].astype(str).dropna().unique().tolist()
-        dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d") 
+        dates = [datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d")
                  for date in dates if is_valid_date(date)]
         dates.sort()
         return dates
@@ -164,9 +166,11 @@ def initialize_output_file(output_file: str) -> None:
             with open(output_file, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['Date', 'Articles'])
-            logging.info(f"Created new output file with headers: {output_file}")
+            logging.info(
+                f"Created new output file with headers: {output_file}")
         except Exception as e:
-            logging.error(f"Failed to initialize output file {output_file}: {e}")
+            logging.error(f"Failed to initialize output file {
+                          output_file}: {e}")
             raise
 
 
@@ -186,7 +190,8 @@ def append_to_csv(output_file: str, date: str, articles: List[str]) -> None:
         with open(output_file, 'a', encoding='utf-8', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([date, articles_str])
-        logging.info(f"Appended {len(articles)} articles for date {date} to {output_file}.")
+        logging.info(f"Appended {len(articles)} articles for date {
+                     date} to {output_file}.")
     except Exception as e:
         logging.error(f"Failed to append data for date {date}: {e}")
 
@@ -210,9 +215,11 @@ def get_existing_dates(output_file: str) -> set:
                     date = row.get('Date', '').strip()
                     if is_valid_date(date):
                         existing_dates.add(date)
-            logging.info(f"Loaded {len(existing_dates)} existing dates from {output_file}.")
+            logging.info(f"Loaded {len(existing_dates)
+                                   } existing dates from {output_file}.")
         except Exception as e:
-            logging.error(f"Failed to read existing output file {output_file}: {e}")
+            logging.error(f"Failed to read existing output file {
+                          output_file}: {e}")
             # Decide whether to proceed or abort. Here, we'll proceed with all dates.
     return existing_dates
 
@@ -252,7 +259,7 @@ def fetch_news_data(dates: List[str], output_file: str, max_pages_per_date: int 
             logging.warning(f"No articles found for date {date}.")
 
         # Short sleep to avoid hitting rate limits too quickly
-        time.sleep(5)  # Adjust based on NYT API rate limits
+        time.sleep(7)  # Adjust based on NYT API rate limits
 
 
 # ==============================
@@ -276,4 +283,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
