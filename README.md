@@ -16,24 +16,25 @@ This project implements the **FinBERT-LSTM model** for predicting stock prices. 
 ```plaintext
 FinBERT_LSTM/
 ├── data/
-│   ├── stock_prices.csv        # Stock price data
-│   ├── news_sentiment.csv      # Sentiment scores from FinBERT
-│   ├── merged_data.csv         # Combined stock prices and sentiment data
+│   ├── stock_prices.csv             # Stock price data
+│   ├── news_sentiment.csv           # Sentiment scores from FinBERT
+│   ├── merged_data.csv              # Combined stock prices and sentiment data
 ├── notebooks/
-│   ├── data_preprocessing.ipynb  # Data collection and preprocessing
-│   ├── model_training.ipynb      # Model training and evaluation
+│   ├── data_preprocessing.ipynb     # Data collection and preprocessing
+│   ├── model_training.ipynb         # Model training and evaluation
 ├── models/
 │   ├── finbert_lstm_model.keras     # Trained FinBERT-LSTM model
-│   ├── checkpoints/              # Checkpoints for intermediate training states
+│   ├── checkpoints/                 # Checkpoints for intermediate training states
 ├── scripts/
-│   ├── collect_stock_data.py     # Script to fetch stock prices
-│   ├── collect_news_data.py      # Script to fetch financial news
-│   ├── compute_sentiments.py     # Script to compute sentiment scores
-│   ├── create_sequences.py       # Script to create training sequences
-│   ├── train_model.py            # Script for training the FinBERT-LSTM model
-│   ├── evaluate_model.py         # Script for evaluating and visualizing results
-├── requirements.txt              # List of dependencies
-├── README.md                     # Project documentation
+│   ├── 1_collect_stock_data.py      # Script to fetch stock prices
+│   ├── 2_collect_news_data.py       # Script to fetch financial news
+│   ├── 3_compute_sentiments.py      # Script to compute sentiment scores
+│   ├── 4_merge_data.py              # Script to merge data
+│   ├── 5_create_sequences.py        # Script to create training sequences
+│   ├── 6_train_model.py             # Script for training the FinBERT-LSTM model
+│   ├── 7_evaluate_model.py          # Script for evaluating and visualizing results
+├── requirements.txt                 # List of dependencies
+├── README.md                        # Project documentation
 ```
 
 ---
