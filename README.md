@@ -30,9 +30,9 @@ FinBERT_LSTM/
 │   ├── 2_collect_news_data.py       # Script to fetch financial news
 │   ├── 3_compute_sentiments.py      # Script to compute sentiment scores
 │   ├── 4_merge_data.py              # Script to merge data
-│   ├── create_sequences.py          # Script to create training sequences
-│   ├── train_model.py               # Script for training the FinBERT-LSTM model
-│   ├── evaluate_model.py            # Script for evaluating and visualizing results
+│   ├── 5_create_sequences.py        # Script to create training sequences
+│   ├── 6_train_model.py             # Script for training the FinBERT-LSTM model
+│   ├── 7_evaluate_model.py          # Script for evaluating and visualizing results
 ├── requirements.txt                 # List of dependencies
 ├── README.md                        # Project documentation
 ```
