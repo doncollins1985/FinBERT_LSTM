@@ -1,6 +1,7 @@
-transformers
+transformers>=4.0.0
 tensorflow
 pandas
+tqdm
 numpy
 scikit-learn
 matplotlib
