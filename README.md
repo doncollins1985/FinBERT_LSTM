@@ -130,4 +130,3 @@ Feel free to fork this project and submit pull requests. Contributions are alway
 
 ## 📧 **Contact**
 For any inquiries, please email: doncollins1985@gmail.com
-```
