@@ -72,25 +72,25 @@ python scripts/3_compute_sentiments.py
 ```
 
 ### **6. Prepare Sequences**:
-Run '4_create_sequences.py' to create rolling window sequences for LSTM training.
+Run `4_create_sequences.py` to create rolling window sequences for LSTM training.
 ```bash
 python scripts/4_create_sequences.py
 ```
 
 ### **7. Merge The Data**:
-Run '5_merge_data.py' to merge the news_data.csv with the stock_data.csv
+Run `5_merge_data.py` to merge the news_data.csv with the stock_data.csv
 ```bash
 python scripts/5_merge_data.py
 ```
 
 ### **8. Train the Model**:
-Run '6_train_model.py' to train the FinBERT-LSTM model.
+Run `6_train_model.py` to train the FinBERT-LSTM model.
 ```bash
 python scripts/6_train_model.py
 ```
 
 ### **9. Evaluate the Model**:
-Run '7_evaluate_model.py' to evaluate and visualize predictions.
+Run `7_evaluate_model.py` to evaluate and visualize predictions.
 ```bash
 python scripts/7_evaluate_model.py
 ```
