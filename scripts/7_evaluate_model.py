@@ -155,7 +155,7 @@ def evaluate_model(model_file, input_file, scaler_file):
 if __name__ == "__main__":
     evaluate_model(
         # Path to the best model saved during training
-        model_file="models/best_finbert_lstm_model.keras",
+        model_file="models/checkpoints/best_finbert_lstm_model.keras",
         input_file="data/sequences.npz",                 # Path to the data file
         scaler_file="models/scalers.npz"                 # Path to the scalers
     )
