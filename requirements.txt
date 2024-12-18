@@ -7,4 +7,5 @@ scikit-learn
 matplotlib
 requests
 yfinance
-
+ratelimit
+backoff

@@ -4,10 +4,12 @@ import requests
 import pandas as pd
 import logging
 import json
-import csv  # Import csv module
+import csv
 from tqdm import tqdm
 from datetime import datetime
 from typing import List
+import backoff
+from ratelimit import limits, sleep_and_retry
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -34,14 +36,17 @@ if not API_KEY:
 # Constants
 BASE_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
 QUERY = "finance business technology"
-MAX_RETRIES = 2
-BACKOFF_FACTOR = 5  # For exponential backoff
-MAX_PAGES = 10        # Maximum pages per date to fetch
+MAX_RETRIES = 3
+BACKOFF_FACTOR = 2  # Exponential backoff factor
+MAX_PAGES = 10       # Maximum pages per date to fetch
+
+# Rate limiting parameters
+RATE_LIMIT_CALLS = 8   # Reduced from 10 to 8 to account for retries
+RATE_LIMIT_PERIOD = 60  # seconds
 
 # ==============================
 # Helper Functions
 # ==============================
-
 
 def create_session() -> requests.Session:
     """
@@ -51,64 +56,13 @@ def create_session() -> requests.Session:
     retries = Retry(
         total=MAX_RETRIES,
         backoff_factor=BACKOFF_FACTOR,
-        status_forcelist=[429, 500, 502, 503, 504],
+        status_forcelist=[500, 502, 503, 504],
         allowed_methods=["GET"]
     )
     adapter = HTTPAdapter(max_retries=retries)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
-
-
-def fetch_articles_for_date(session: requests.Session, date: str, max_pages: int = MAX_PAGES) -> List[str]:
-    """
-    Fetch articles for a specific date, handling pagination.
-
-    Args:
-        session: requests.Session object.
-        date: Date string in 'YYYY-MM-DD' format.
-        max_pages: Maximum number of pages to fetch.
-
-    Returns:
-        List of article headlines.
-    """
-    articles = []
-    base_date = date.replace("-", "")
-    for page in range(max_pages):
-        params = {
-            'q': QUERY,
-            'begin_date': base_date,
-            'end_date': base_date,
-            'api-key': API_KEY,
-            'page': page
-        }
-        try:
-            response = session.get(BASE_URL, params=params, timeout=10)
-            if response.status_code == 429:
-                # Rate limit exceeded, wait and retry
-                retry_after = int(response.headers.get("Retry-After", 60))
-                logging.warning(f"Rate limit exceeded. Retrying after {
-                                retry_after} seconds.")
-                time.sleep(retry_after)
-                continue
-            response.raise_for_status()
-            data = response.json()
-            docs = data.get('response', {}).get('docs', [])
-            if not docs:
-                break  # No more articles
-            for doc in docs:
-                headline = doc.get('headline', {}).get('main')
-                if headline:
-                    articles.append(headline)
-            # If less than 10 articles are returned, it's likely the last page
-            if len(docs) < 10:
-                break
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Request failed for date {
-                          date} on page {page}: {e}")
-            break
-    return articles
-
 
 def load_dates_from_stock_data(stock_file: str) -> List[str]:
     """
@@ -135,7 +89,6 @@ def load_dates_from_stock_data(stock_file: str) -> List[str]:
         logging.error(f"Failed to load dates from {stock_file}: {e}")
         raise
 
-
 def is_valid_date(date_str: str) -> bool:
     """
     Validate if the provided string is a valid date in 'YYYY-MM-DD' format.
@@ -152,7 +105,6 @@ def is_valid_date(date_str: str) -> bool:
     except ValueError:
         return False
 
-
 def initialize_output_file(output_file: str) -> None:
     """
     Initialize the output CSV file by creating it with headers if it doesn't exist.
@@ -166,13 +118,10 @@ def initialize_output_file(output_file: str) -> None:
             with open(output_file, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['Date', 'Articles'])
-            logging.info(
-                f"Created new output file with headers: {output_file}")
+            logging.info(f"Created new output file with headers: {output_file}")
         except Exception as e:
-            logging.error(f"Failed to initialize output file {
-                          output_file}: {e}")
+            logging.error(f"Failed to initialize output file {output_file}: {e}")
             raise
-
 
 def append_to_csv(output_file: str, date: str, articles: List[str]) -> None:
     """
@@ -190,11 +139,9 @@ def append_to_csv(output_file: str, date: str, articles: List[str]) -> None:
         with open(output_file, 'a', encoding='utf-8', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([date, articles_str])
-        logging.info(f"Appended {len(articles)} articles for date {
-                     date} to {output_file}.")
+        logging.info(f"Appended {len(articles)} articles for date {date} to {output_file}.")
     except Exception as e:
         logging.error(f"Failed to append data for date {date}: {e}")
-
 
 def get_existing_dates(output_file: str) -> set:
     """
@@ -215,14 +162,92 @@ def get_existing_dates(output_file: str) -> set:
                     date = row.get('Date', '').strip()
                     if is_valid_date(date):
                         existing_dates.add(date)
-            logging.info(f"Loaded {len(existing_dates)
-                                   } existing dates from {output_file}.")
+            logging.info(f"Loaded {len(existing_dates)} existing dates from {output_file}.")
         except Exception as e:
-            logging.error(f"Failed to read existing output file {
-                          output_file}: {e}")
+            logging.error(f"Failed to read existing output file {output_file}: {e}")
             # Decide whether to proceed or abort. Here, we'll proceed with all dates.
     return existing_dates
 
+# ==============================
+# Rate-Limited and Backoff Decorated API Call
+# ==============================
+
+@sleep_and_retry
+@limits(calls=RATE_LIMIT_CALLS, period=RATE_LIMIT_PERIOD)
+def make_api_request(session: requests.Session, params: dict) -> requests.Response:
+    """
+    Make a rate-limited API request with retry on 429 errors.
+
+    Args:
+        session: requests.Session object.
+        params: Dictionary of query parameters.
+
+    Returns:
+        Response object from the API call.
+    """
+    response = session.get(BASE_URL, params=params, timeout=10)
+    if response.status_code == 429:
+        # Extract 'Retry-After' header if present
+        retry_after = int(response.headers.get("Retry-After", 60))
+        logging.warning(f"Rate limit exceeded. Retrying after {retry_after} seconds.")
+        time.sleep(retry_after)
+        raise Exception("Rate limit exceeded")
+    response.raise_for_status()
+    return response
+
+@backoff.on_exception(
+    backoff.expo,
+    (requests.exceptions.RequestException, Exception),
+    max_tries=MAX_RETRIES,
+    jitter=backoff.full_jitter,
+    giveup=lambda e: isinstance(e, requests.exceptions.HTTPError) and e.response is not None and e.response.status_code < 500
+)
+def fetch_articles_for_date(session: requests.Session, date: str, max_pages: int = MAX_PAGES) -> List[str]:
+    """
+    Fetch articles for a specific date, handling pagination and rate limits.
+
+    Args:
+        session: requests.Session object.
+        date: Date string in 'YYYY-MM-DD' format.
+        max_pages: Maximum number of pages to fetch.
+
+    Returns:
+        List of article headlines.
+    """
+    articles = []
+    base_date = date.replace("-", "")
+    for page in range(max_pages):
+        params = {
+            'q': QUERY,
+            'begin_date': base_date,
+            'end_date': base_date,
+            'api-key': API_KEY,
+            'page': page
+        }
+        try:
+            logging.info(f"Making request for date {date} on page {page}.")
+            response = make_api_request(session, params)
+            data = response.json()
+            docs = data.get('response', {}).get('docs', [])
+            if not docs:
+                logging.info(f"No more articles found for date {date} on page {page}.")
+                break  # No more articles
+            for doc in docs:
+                headline = doc.get('headline', {}).get('main')
+                if headline:
+                    articles.append(headline)
+            # If less than 10 articles are returned, it's likely the last page
+            if len(docs) < 10:
+                logging.info(f"Less than 10 articles found for date {date} on page {page}. Ending pagination.")
+                break
+        except Exception as e:
+            logging.error(f"Request failed for date {date} on page {page}: {e}")
+            break  # Exit pagination on failure
+    return articles
+
+# ==============================
+# Core Functionality
+# ==============================
 
 def fetch_news_data(dates: List[str], output_file: str, max_pages_per_date: int = MAX_PAGES) -> None:
     """
@@ -251,21 +276,17 @@ def fetch_news_data(dates: List[str], output_file: str, max_pages_per_date: int 
 
     for date in tqdm(filtered_dates, desc="Fetching news data"):
         # Date format has been validated during loading
-        articles = fetch_articles_for_date(
-            session, date, max_pages=max_pages_per_date)
+        articles = fetch_articles_for_date(session, date, max_pages=max_pages_per_date)
         if articles:
             append_to_csv(output_file, date, articles)
         else:
             logging.warning(f"No articles found for date {date}.")
 
-        # Short sleep to avoid hitting rate limits too quickly
-        time.sleep(7)  # Adjust based on NYT API rate limits
-
+    logging.info(f"\nFetching complete. Cleaned CSV saved as '{output_file}'.")
 
 # ==============================
 # Main Execution
 # ==============================
-
 
 def main():
     """
@@ -280,6 +301,6 @@ def main():
     except Exception as e:
         logging.critical(f"An unexpected error occurred: {e}")
 
-
 if __name__ == "__main__":
     main()
+

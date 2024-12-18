@@ -37,4 +37,4 @@ def fetch_stock_data(ticker, start_date, end_date, output_file):
 # Example usage
 if __name__ == "__main__":
     output_path = "data/stock_prices.csv"
-    fetch_stock_data("^GSPC", "2010-01-01", "2024-12-01", output_path)
+    fetch_stock_data("^SPX", "2010-01-01", "2024-12-01", output_path)

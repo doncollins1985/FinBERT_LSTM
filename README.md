@@ -33,6 +33,7 @@ FinBERT_LSTM/
 │   ├── 5_create_sequences.py        # Script to create training sequences
 │   ├── 6_train_model.py             # Script for training the FinBERT-LSTM model
 │   ├── 7_evaluate_model.py          # Script for evaluating and visualizing results
+│   ├── 8_predict_next_day.py        # Script for prediction
 ├── requirements.txt                 # List of dependencies
 ├── README.md                        # Project documentation
 ```
@@ -94,6 +95,13 @@ Run `7_evaluate_model.py` to evaluate and visualize predictions.
 ```bash
 python scripts/7_evaluate_model.py
 ```
+
+### **10. Predict Next Day Stock Price**:
+Run `8_predict_next_day.py` to see next day prediction.
+```bash
+python scripts/8_predict_next_day.py
+```
+
 
 ---
 
